@@ -11,7 +11,6 @@ import com.tcs.eventhub.dto.TicketResponse;
 import com.tcs.eventhub.exception.BusinessException;
 import com.tcs.eventhub.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -19,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -114,9 +114,8 @@ class TicketServiceTest {
                 .hasMessageContaining("already has a ticket");
     }
 
-    @Disabled("need to validate capacity edge case - what if capacity is exactly 1?")
     @Test
-    void shouldDecrementCapacityAfterPurchase() {
+    void shouldDecrementCapacityToZeroWhenLastTicket() {
         event.setCapacity(1);
         when(eventRepository.findById(1L)).thenReturn(Optional.of(event));
         when(participantRepository.findByEmail("john@example.com")).thenReturn(Optional.of(participant));
@@ -133,5 +132,32 @@ class TicketServiceTest {
 
         assertThat(event.getCapacity()).isEqualTo(0);
         verify(eventRepository).save(event);
+    }
+
+    @Test
+    void shouldReturnTicketsByParticipant() {
+        Ticket ticket = Ticket.builder()
+                .id(1L)
+                .event(event)
+                .participant(participant)
+                .purchasedAt(LocalDateTime.now())
+                .build();
+
+        when(participantRepository.existsById(1L)).thenReturn(true);
+        when(ticketRepository.findByParticipantId(1L)).thenReturn(List.of(ticket));
+
+        List<TicketResponse> tickets = ticketService.findByParticipant(1L);
+
+        assertThat(tickets).hasSize(1);
+        assertThat(tickets.get(0).eventName()).isEqualTo("Tech Conference");
+    }
+
+    @Test
+    void shouldThrowWhenParticipantNotFoundForHistory() {
+        when(participantRepository.existsById(1L)).thenReturn(false);
+
+        assertThatThrownBy(() -> ticketService.findByParticipant(1L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Participant not found");
     }
 }
