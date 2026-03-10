@@ -8,6 +8,7 @@ import com.tcs.eventhub.domain.repository.ParticipantRepository;
 import com.tcs.eventhub.domain.repository.TicketRepository;
 import com.tcs.eventhub.dto.TicketPurchaseRequest;
 import com.tcs.eventhub.dto.TicketResponse;
+import com.tcs.eventhub.exception.BusinessException;
 import com.tcs.eventhub.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,17 +26,20 @@ public class TicketService {
     private final ParticipantRepository participantRepository;
     private final TicketRepository ticketRepository;
 
-    // TODO: handle edge cases - duplicate purchases, concurrent access
     @Transactional
     public TicketResponse purchase(TicketPurchaseRequest request) {
         Event event = eventRepository.findById(request.eventId())
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found with id: " + request.eventId()));
 
         if (event.getCapacity() <= 0) {
-            throw new RuntimeException("Event is sold out");
+            throw new BusinessException("Event is sold out");
         }
 
         Participant participant = getOrCreateParticipant(request);
+
+        if (ticketRepository.existsByEventIdAndParticipantId(event.getId(), participant.getId())) {
+            throw new BusinessException("Participant already has a ticket for this event");
+        }
 
         event.setCapacity(event.getCapacity() - 1);
         eventRepository.save(event);
@@ -47,7 +51,10 @@ public class TicketService {
 
         ticket = ticketRepository.save(ticket);
 
-        log.info("Ticket purchased - Event: {}, Participant: {}", event.getName(), participant.getEmail());
+        log.info("Ticket purchased successfully - Event: {}, Participant: {}", event.getName(), participant.getEmail());
+
+        // simulate email confirmation
+        log.info("[EMAIL] Sending confirmation to {} for event '{}'", participant.getEmail(), event.getName());
 
         return TicketResponse.from(ticket);
     }
