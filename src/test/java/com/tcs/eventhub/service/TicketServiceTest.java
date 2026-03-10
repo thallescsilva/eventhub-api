@@ -16,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -150,6 +151,19 @@ class TicketServiceTest {
 
         assertThat(tickets).hasSize(1);
         assertThat(tickets.get(0).eventName()).isEqualTo("Tech Conference");
+    }
+
+    @Test
+    void shouldThrowOnConcurrentPurchase() {
+        when(eventRepository.findById(1L)).thenReturn(Optional.of(event));
+        when(participantRepository.findByEmail("john@example.com")).thenReturn(Optional.of(participant));
+        when(ticketRepository.existsByEventIdAndParticipantId(1L, 1L)).thenReturn(false);
+        when(eventRepository.save(any(Event.class)))
+                .thenThrow(new ObjectOptimisticLockingFailureException(Event.class.getName(), 1L));
+
+        assertThatThrownBy(() -> ticketService.purchase(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("high demand");
     }
 
     @Test

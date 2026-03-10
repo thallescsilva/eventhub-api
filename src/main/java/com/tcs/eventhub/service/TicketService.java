@@ -12,6 +12,7 @@ import com.tcs.eventhub.exception.BusinessException;
 import com.tcs.eventhub.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,7 +43,12 @@ public class TicketService {
         }
 
         event.setCapacity(event.getCapacity() - 1);
-        eventRepository.save(event);
+
+        try {
+            eventRepository.save(event);
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw new BusinessException("Could not complete purchase due to high demand. Please try again.");
+        }
 
         Ticket ticket = Ticket.builder()
                 .event(event)

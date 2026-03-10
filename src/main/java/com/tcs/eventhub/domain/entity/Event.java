@@ -29,4 +29,7 @@ public class Event {
 
     @Column(nullable = false)
     private Integer capacity;
+
+    @Version
+    private Long version;
 }
