@@ -20,6 +20,11 @@ spring:
 server:
   port: 8080
 
+app:
+  jwt:
+    secret: eventhub-default-secret-key-for-development-only-change-in-production
+    expiration: 86400000
+
 logging:
   level:
     com.tcs.eventhub: DEBUG
