@@ -12,6 +12,7 @@ import com.tcs.eventhub.exception.BusinessException;
 import com.tcs.eventhub.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +27,7 @@ public class TicketService {
     private final EventRepository eventRepository;
     private final ParticipantRepository participantRepository;
     private final TicketRepository ticketRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public TicketResponse purchase(TicketPurchaseRequest request) {
@@ -58,11 +60,12 @@ public class TicketService {
         ticket = ticketRepository.save(ticket);
 
         log.info("Ticket purchased successfully - Event: {}, Participant: {}", event.getName(), participant.getEmail());
-
-        // simulate email confirmation
-        log.info("[EMAIL] Sending confirmation to {} for event '{}'", participant.getEmail(), event.getName());
+        eventPublisher.publishEvent(new TicketPurchasedEvent(ticket));
 
         return TicketResponse.from(ticket);
+    }
+
+    public record TicketPurchasedEvent(Ticket ticket) {
     }
 
     @Transactional(readOnly = true)
